@@ -89,6 +89,8 @@ namespace Microsoft.AspNetCore.SignalR
 
         internal HubCallerContext HubCallerContext { get; }
 
+        internal List<Task> ActiveHubInvocations { get; } = new List<Task>();
+
         /// <summary>
         /// Gets a <see cref="CancellationToken"/> that notifies when the connection is aborted.
         /// </summary>

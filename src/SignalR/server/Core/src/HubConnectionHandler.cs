@@ -259,7 +259,6 @@ namespace Microsoft.AspNetCore.SignalR
                             while (protocol.TryParseMessage(ref buffer, binder, out var message))
                             {
                                 messageReceived = true;
-                                connection.StopClientTimeout();
                                 await _dispatcher.DispatchMessageAsync(connection, message);
                             }
 
@@ -287,7 +286,6 @@ namespace Microsoft.AspNetCore.SignalR
                                 if (protocol.TryParseMessage(ref segment, binder, out var message))
                                 {
                                     messageReceived = true;
-                                    connection.StopClientTimeout();
 
                                     await _dispatcher.DispatchMessageAsync(connection, message);
                                 }
