@@ -2901,7 +2901,10 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 var serviceProvider = HubConnectionHandlerTestUtils.CreateServiceProvider(services =>
                 {
                     services.Configure<HubOptions>(options =>
-                         options.ClientTimeoutInterval = TimeSpan.FromMilliseconds(0));
+                    {
+                        options.ClientTimeoutInterval = TimeSpan.FromMilliseconds(0);
+                        options.MaxParallelInvocationsPerClient = 1;
+                    });
                     services.AddSingleton(tcsService);
                 }, LoggerFactory);
                 var connectionHandler = serviceProvider.GetService<HubConnectionHandler<LongRunningHub>>();
@@ -2933,6 +2936,42 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                     await customDuplex.WrappedPipeReader.WaitForReadStart().OrTimeout();
 
                     // Tick heartbeat again now that we're outside of the hub method
+                    client.TickHeartbeat();
+
+                    // Connection is closed
+                    await connectionHandlerTask.OrTimeout();
+                }
+            }
+        }
+
+        [Fact]
+        public async Task HubMethodInvokeCountsTowardsClientTimeoutIfParallelNotMaxed()
+        {
+            using (StartVerifiableLog())
+            {
+                var tcsService = new TcsService();
+                var serviceProvider = HubConnectionHandlerTestUtils.CreateServiceProvider(services =>
+                {
+                    services.Configure<HubOptions>(options =>
+                    {
+                        options.ClientTimeoutInterval = TimeSpan.FromMilliseconds(0);
+                        options.MaxParallelInvocationsPerClient = 2;
+                    });
+                    services.AddSingleton(tcsService);
+                }, LoggerFactory);
+                var connectionHandler = serviceProvider.GetService<HubConnectionHandler<LongRunningHub>>();
+
+                using (var client = new TestClient(new JsonHubProtocol()))
+                {
+                    var connectionHandlerTask = await client.ConnectAsync(connectionHandler);
+                    // This starts the timeout logic
+                    await client.SendHubMessageAsync(PingMessage.Instance);
+
+                    // Call long running hub method
+                    var hubMethodTask = client.InvokeAsync(nameof(LongRunningHub.LongRunningMethod));
+                    await tcsService.StartedMethod.Task.OrTimeout();
+
+                    // Tick heartbeat while hub method is running
                     client.TickHeartbeat();
 
                     // Connection is closed
@@ -3040,7 +3079,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
         }
 
         [Fact]
-        public async Task InvocationsRunInOrder()
+        public async Task InvocationsRunInOrderWithNoParallelism()
         {
             using (StartVerifiableLog())
             {
@@ -3048,6 +3087,11 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 var serviceProvider = HubConnectionHandlerTestUtils.CreateServiceProvider(builder =>
                 {
                     builder.AddSingleton(tcsService);
+
+                    builder.AddSignalR(options =>
+                    {
+                        options.MaxParallelInvocationsPerClient = 1;
+                    });
                 }, LoggerFactory);
                 var connectionHandler = serviceProvider.GetService<HubConnectionHandler<LongRunningHub>>();
 
@@ -3099,6 +3143,11 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 {
                     builder.AddSingleton(tcsService);
                     builder.AddSingleton(typeof(IHubActivator<>), typeof(CustomHubActivator<>));
+
+                    builder.AddSignalR(options =>
+                    {
+                        options.MaxParallelInvocationsPerClient = 1;
+                    });
                 }, LoggerFactory);
                 var connectionHandler = serviceProvider.GetService<HubConnectionHandler<LongRunningHub>>();
 
