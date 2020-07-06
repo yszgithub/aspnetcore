@@ -242,9 +242,9 @@
         Condition=" '$(IsAspNetCoreApp)' == 'true' AND '$(IsImplementationProject)' == 'true' AND
             !$(HasReferenceAssembly) AND '$(TargetFramework)' == '$(DefaultNetCoreTargetFramework)' "
         Text="All assemblies which have set IsAspNetCoreApp=true should produce a reference assembly for default TFM." />
-    <Warning Condition=" '$(IsAspNetCoreApp)' == 'true' AND '$(IsImplementationProject)' != 'true' "
+    <Error Condition=" '$(IsAspNetCoreApp)' == 'true' AND '$(IsImplementationProject)' != 'true' "
         Text="Only implementation projects should set IsAspNetCoreApp=true." />
-    <Warning Condition=" '$(IsAspNetCoreApp)' != 'true' AND $(HasReferenceAssembly) "
+    <Error Condition=" '$(IsAspNetCoreApp)' != 'true' AND $(HasReferenceAssembly) "
         Text="Only projects in the shared framework i.e. IsAspNetCoreApp==true should produce a reference assembly." />
 
     <ItemGroup Condition=" '$(IsProjectReferenceProvider)' == 'true' ">
