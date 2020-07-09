@@ -83,7 +83,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
         /// <summary>
         /// Gets the key for the current instance.
         /// </summary>
-        protected ModelMetadataIdentity Identity { get; }
+        protected internal ModelMetadataIdentity Identity { get; }
 
         /// <summary>
         /// Gets a collection of additional information about the model.
@@ -94,6 +94,19 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
         /// Gets the collection of <see cref="ModelMetadata"/> instances for the model's properties.
         /// </summary>
         public abstract ModelPropertyCollection Properties { get; }
+
+        /// <summary>
+        /// Gets <see cref="ModelMetadata"/> instance for a constructor that is used during binding.
+        /// This property is only available if no parameterless constructor is found on a model or
+        /// if the model configures a non-default constructor to use during model binding.
+        /// </summary>
+        public abstract ModelMetadata BoundConstructor { get; }
+
+        /// <summary>
+        /// Gets the collection of <see cref="ModelMetadata"/> instances for a constructor's parameters.
+        /// This is only available when <see cref="MetadataKind"/> is <see cref="ModelMetadataKind.Constructor"/>.
+        /// </summary>
+        public abstract IReadOnlyList<ModelMetadata> Parameters { get; }
 
         /// <summary>
         /// Gets the name of a model if specified explicitly using <see cref="IModelNameProvider"/>.
@@ -400,6 +413,11 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
         /// Gets a property setter delegate to set the property value on a model object.
         /// </summary>
         public abstract Action<object, object> PropertySetter { get; }
+
+        /// <summary>
+        /// Gets a delegate that invokes the constructor.
+        /// </summary>
+        public abstract Func<object[], object> BoundConstructorInvoker { get; }
 
         /// <summary>
         /// Gets a display name for the model.

@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Reflection;
 using Microsoft.AspNetCore.Mvc.Core;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
@@ -97,5 +98,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         /// See <see cref="ModelMetadata.PropertyFilterProvider"/>.
         /// </summary>
         public IPropertyFilterProvider PropertyFilterProvider { get; set; }
+
+        public ConstructorInfo BoundConstructor { get; set; }
     }
 }

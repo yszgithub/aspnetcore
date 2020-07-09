@@ -7,12 +7,15 @@ namespace MvcSandbox.Controllers
 {
     public class HomeController : Controller
     {
-        [ModelBinder]
-        public string Id { get; set; }
+        //[ModelBinder]
+        //public string Id { get; set; }
 
-        public IActionResult Index()
+        public IActionResult Index(Person person)
         {
             return View();
         }
+
+        public record Person(string name, int age);
+        
     }
 }

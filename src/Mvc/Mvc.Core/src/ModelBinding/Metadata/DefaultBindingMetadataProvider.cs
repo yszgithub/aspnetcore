@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Serialization;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
 {
@@ -72,6 +73,52 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
                 context.BindingMetadata.IsBindingAllowed = bindingBehavior.Behavior != BindingBehavior.Never;
                 context.BindingMetadata.IsBindingRequired = bindingBehavior.Behavior == BindingBehavior.Required;
             }
+
+            if (context.BindingMetadata.IsBindingAllowed)
+            {
+                var boundConstructor = FindBoundConstructor(context);
+                if (boundConstructor != null)
+                {
+                    context.BindingMetadata.BoundConstructor = boundConstructor;
+                }
+            }
+        }
+
+        private ConstructorInfo FindBoundConstructor(BindingMetadataProviderContext context)
+        {
+            var type = context.Key.ModelType;
+
+            var constructors = type.GetConstructors();
+            if (constructors.Length == 0)
+            {
+                return null;
+            }
+
+            var modelBindingConstructors = constructors.Where(c => c.IsDefined(typeof(ModelBindingConstructor), inherit: true)).ToList();
+            if (modelBindingConstructors.Count > 1)
+            {
+                throw new InvalidOperationException($"More than one constructor found on {type} with ModelBindingConstructorAttribute.");
+            }
+            else if (modelBindingConstructors.Count == 1)
+            {
+                var boundConstructor = modelBindingConstructors[0];
+                if (boundConstructor.GetParameters().Length == 0)
+                {
+                    // Parameterless constructors do need special handling.
+                    return null;
+                }
+
+                return boundConstructor;
+            }
+
+            // All things being equal, we prefer using a parameterless constructor.
+            if (constructors.Any(c => c.GetParameters().Length == 0))
+            {
+                return null;
+            }
+
+            // Pick the longest constructor.
+            return constructors.OrderByDescending(c => c.GetParameters().Length).First();
         }
 
         private static BindingBehaviorAttribute FindBindingBehavior(BindingMetadataProviderContext context)

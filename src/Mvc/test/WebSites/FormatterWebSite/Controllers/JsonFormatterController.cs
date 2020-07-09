@@ -1,7 +1,9 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Buffers;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -44,7 +46,7 @@ namespace FormatterWebSite.Controllers
         }
 
         [HttpPost]
-        public IActionResult ReturnInput([FromBody]DummyClass dummyObject)
+        public IActionResult ReturnInput([FromBody] DummyClass dummyObject)
         {
             if (!ModelState.IsValid)
             {
@@ -72,10 +74,7 @@ namespace FormatterWebSite.Controllers
         }
 
         [HttpPost]
-        public ActionResult<SimpleRecordModel> RoundtripRecordType([FromBody] SimpleRecordModel model)
-        {
-            return model;
-        }
+        public ActionResult<SimpleRecordModel> RoundtripRecordType([FromBody] SimpleRecordModel model) => model;
 
         public class SimpleModel
         {

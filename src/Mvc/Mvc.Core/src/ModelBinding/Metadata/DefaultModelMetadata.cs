@@ -25,6 +25,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
 
         private ReadOnlyDictionary<object, object> _additionalValues;
         private ModelMetadata _elementMetadata;
+        private ModelMetadata _constructorMetadata;
         private bool? _isBindingRequired;
         private bool? _isReadOnly;
         private bool? _isRequired;
@@ -387,6 +388,28 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         }
 
         /// <inheritdoc />
+        public override ModelMetadata BoundConstructor
+        {
+            get
+            {
+                if (_details.BindingMetadata.BoundConstructor == null)
+                {
+                    return null;
+                }
+
+                if (_constructorMetadata == null)
+                {
+                    var modelMetadataProvider = (ModelMetadataProvider)_provider;
+                    _constructorMetadata = modelMetadataProvider.GetMetadataForConstructor(_details.BindingMetadata.BoundConstructor, ModelType);
+                }
+
+                return _constructorMetadata;
+            }
+        }
+
+        public override IReadOnlyList<ModelMetadata> Parameters => _details.BoundConstructorParameters;
+
+        /// <inheritdoc />
         public override IPropertyFilterProvider PropertyFilterProvider => BindingMetadata.PropertyFilterProvider;
 
         /// <inheritdoc />
@@ -526,6 +549,9 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
 
         /// <inheritdoc />
         public override Action<object, object> PropertySetter => _details.PropertySetter;
+
+        /// <inheritdoc />
+        public override Func<object[], object> BoundConstructorInvoker => _details.BoundConstructorInvoker;
 
         /// <inheritdoc />
         public override ModelMetadata GetMetadataForType(Type modelType)

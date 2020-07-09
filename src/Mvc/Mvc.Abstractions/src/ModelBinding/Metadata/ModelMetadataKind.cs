@@ -22,5 +22,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         /// Used for <see cref="ModelMetadata"/> for a parameter.
         /// </summary>
         Parameter,
+
+        /// <summary>
+        /// Used for <see cref="ModelMetadata"/> for a method.
+        /// </summary>
+        Constructor,
     }
 }

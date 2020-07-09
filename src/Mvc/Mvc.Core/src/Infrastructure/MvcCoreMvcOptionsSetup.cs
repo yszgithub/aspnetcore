@@ -72,6 +72,7 @@ namespace Microsoft.AspNetCore.Mvc
             options.ModelBinderProviders.Add(new DictionaryModelBinderProvider());
             options.ModelBinderProviders.Add(new ArrayModelBinderProvider());
             options.ModelBinderProviders.Add(new CollectionModelBinderProvider());
+            options.ModelBinderProviders.Add(new ConstructorParametersModelBinderProvider());
             options.ModelBinderProviders.Add(new ComplexTypeModelBinderProvider());
 
             // Set up filters

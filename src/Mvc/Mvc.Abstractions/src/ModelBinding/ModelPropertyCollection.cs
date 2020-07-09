@@ -54,4 +54,48 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
             }
         }
     }
+
+    public sealed class ModelParameterCollection : ReadOnlyCollection<ModelMetadata>
+    {
+        /// <summary>
+        /// Creates a new <see cref="ModelPropertyCollection"/>.
+        /// </summary>
+        /// <param name="parameters">The parameters.</param>
+        public ModelParameterCollection(IEnumerable<ModelMetadata> parameters)
+            : base(parameters.ToList())
+        {
+        }
+
+        /// <summary>
+        /// Gets a <see cref="ModelMetadata"/> instance for the parameter corresponding to <paramref name="parameterName"/>.
+        /// </summary>
+        /// <param name="parameterName">
+        /// The parameter name. Parameter names are compared using <see cref="StringComparison.Ordinal"/>.
+        /// </param>
+        /// <returns>
+        /// The <see cref="ModelMetadata"/> instance for the parameter specified by <paramref name="parameterName"/>, or
+        /// <c>null</c> if no match can be found.
+        /// </returns>
+        public ModelMetadata? this[string parameterName]
+        {
+            get
+            {
+                if (parameterName == null)
+                {
+                    throw new ArgumentNullException(nameof(parameterName));
+                }
+
+                for (var i = 0; i < Items.Count; i++)
+                {
+                    var parameter = Items[i];
+                    if (string.Equals(parameter.ParameterName, parameterName, StringComparison.Ordinal))
+                    {
+                        return parameter;
+                    }
+                }
+
+                return null;
+            }
+        }
+    }
 }
