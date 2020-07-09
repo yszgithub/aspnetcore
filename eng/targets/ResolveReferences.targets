@@ -147,14 +147,14 @@
       <UnusedBaselinePackageReference Remove="@(SuppressBaselineReference)" Condition="'$(IsServicingBuild)' != 'true'"/>
     </ItemGroup>
 
-    <JoinItems Left="@(Reference)" Right="@(LatestPackageReference)" LeftMetadata="*" RightMetadata="Version"
+    <JoinItems Left="@(Reference)" Right="@(LatestPackageReference)" LeftMetadata="*" RightMetadata="Version;RTMVersion"
         Condition=" '$(UseLatestPackageReferences)' == 'true' ">
       <Output TaskParameter="JoinResult" ItemName="_LatestPackageReferenceWithVersion" />
     </JoinItems>
 
     <ItemGroup>
-      <!-- Remove reference items that have been resolved to a LatestPackageReference item. -->
       <PackageReference Include="@(_LatestPackageReferenceWithVersion)" IsImplicitlyDefined="true" />
+      <!-- Remove reference items that have been resolved to a LatestPackageReference item. -->
       <Reference Remove="@(_LatestPackageReferenceWithVersion)" />
     </ItemGroup>
 
@@ -165,8 +165,8 @@
     </JoinItems>
 
     <ItemGroup>
-      <!-- Remove reference items that have been resolved to a BaselinePackageReference item. -->
       <PackageReference Include="@(_BaselinePackageReferenceWithVersion)" IsImplicitlyDefined="true" />
+      <!-- Remove reference items that have been resolved to a BaselinePackageReference item. -->
       <Reference Remove="@(_BaselinePackageReferenceWithVersion)" />
     </ItemGroup>
 
@@ -174,13 +174,13 @@
     <JoinItems Left="@(Reference->WithMetadataValue('PrivateAssets', 'All'))"
         Right="@(LatestPackageReference)"
         LeftMetadata="*"
-        RightMetadata="Version">
+        RightMetadata="Version;RTMVersion">
       <Output TaskParameter="JoinResult" ItemName="_PrivatePackageReferenceWithVersion" />
     </JoinItems>
 
     <ItemGroup>
-      <!-- Remove reference items that have been resolved to a LatestPackageReference item. -->
       <PackageReference Include="@(_PrivatePackageReferenceWithVersion)" IsImplicitlyDefined="true" />
+      <!-- Remove reference items that have been resolved to a LatestPackageReference item. -->
       <Reference Remove="@(_PrivatePackageReferenceWithVersion)" />
 
       <!-- Free up memory for unnecessary items -->
@@ -188,6 +188,23 @@
       <_BaselinePackageReferenceWithVersion Remove="@(_BaselinePackageReferenceWithVersion)" />
       <_PrivatePackageReferenceWithVersion Remove="@(_PrivatePackageReferenceWithVersion)" />
       <_ImplicitPackageReference Remove="@(_ImplicitPackageReference)" />
+    </ItemGroup>
+
+    <!--
+      Update project references to compile against RTM packages. %(RTMVersion) is set for about a dozen packages in all
+      servicing builds. But, these changes are only needed when that value differs from current %(Version) i.e. after
+      an incoming package has been serviced.
+    -->
+    <ItemGroup>
+      <PackageReference
+          Condition=" '%(PackageReference.RTMVersion)' != '' and '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
+          ExcludeAssets="Compile" />
+      <PackageReference Include="@(PackageReference->HasMetadata('RTMVersion'))"
+          Condition=" '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
+          IsImplicitlyDefined="true"
+          IncludeAssets="Compile"
+          PrivateAssets="All"
+          Version="%(PackageReference.RTMVersion)" />
     </ItemGroup>
 
     <Error
