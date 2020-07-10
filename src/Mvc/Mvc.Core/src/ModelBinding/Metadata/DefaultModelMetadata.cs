@@ -392,7 +392,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         {
             get
             {
-                if (_details.BindingMetadata.BoundConstructor == null)
+                if (_details.BindingMetadata?.BoundConstructor == null)
                 {
                     return null;
                 }
@@ -517,8 +517,26 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
             }
             else if (defaultModelMetadata.IsComplexType)
             {
+                var parameters = defaultModelMetadata.BoundConstructor?.Parameters ?? Array.Empty<ModelMetadata>();
+                var parameterNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var parameter in parameters)
+                {
+                    parameterNames.Add(parameter.ParameterName);
+
+                    if (CalculateHasValidators(visited, parameter))
+                    {
+                        return true;
+                    }
+                }
+
                 foreach (var property in defaultModelMetadata.Properties)
                 {
+                    if (parameterNames.Contains(property.Name))
+                    {
+                        // If a type has a bound constructor, parameters get bound and validared over properties if they have the same name.
+                        continue;
+                    }
+                    
                     if (CalculateHasValidators(visited, property))
                     {
                         return true;
@@ -551,7 +569,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         public override Action<object, object> PropertySetter => _details.PropertySetter;
 
         /// <inheritdoc />
-        public override Func<object[], object> BoundConstructorInvoker => _details.BoundConstructorInvoker;
+        public override Func<object[], object> ConstructorInvoker => _details.BoundConstructorInvoker;
 
         /// <inheritdoc />
         public override ModelMetadata GetMetadataForType(Type modelType)

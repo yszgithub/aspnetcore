@@ -74,13 +74,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
                 context.BindingMetadata.IsBindingRequired = bindingBehavior.Behavior == BindingBehavior.Required;
             }
 
-            if (context.BindingMetadata.IsBindingAllowed)
+            var boundConstructor = FindBoundConstructor(context);
+            if (boundConstructor != null)
             {
-                var boundConstructor = FindBoundConstructor(context);
-                if (boundConstructor != null)
-                {
-                    context.BindingMetadata.BoundConstructor = boundConstructor;
-                }
+                context.BindingMetadata.BoundConstructor = boundConstructor;
             }
         }
 
@@ -88,37 +85,36 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
         {
             var type = context.Key.ModelType;
 
+            if (type.IsAbstract || type.IsValueType || type.IsInterface)
+            {
+                return null;
+            }
+
             var constructors = type.GetConstructors();
             if (constructors.Length == 0)
             {
                 return null;
             }
 
-            var modelBindingConstructors = constructors.Where(c => c.IsDefined(typeof(ModelBindingConstructor), inherit: true)).ToList();
-            if (modelBindingConstructors.Count > 1)
+            if (constructors.Length == 1)
             {
-                throw new InvalidOperationException($"More than one constructor found on {type} with ModelBindingConstructorAttribute.");
-            }
-            else if (modelBindingConstructors.Count == 1)
-            {
-                var boundConstructor = modelBindingConstructors[0];
-                if (boundConstructor.GetParameters().Length == 0)
-                {
-                    // Parameterless constructors do need special handling.
-                    return null;
-                }
-
-                return boundConstructor;
+                return constructors[0];
             }
 
-            // All things being equal, we prefer using a parameterless constructor.
-            if (constructors.Any(c => c.GetParameters().Length == 0))
+            var constructorsWithAttributes = constructors
+                .Where(c => c.IsDefined(typeof(JsonConstructorAttribute), inherit: true) || c.IsDefined(typeof(ModelBindingConstructorAttribute), inherit: true))
+                .ToList();
+            
+            if (constructorsWithAttributes.Count > 1)
             {
-                return null;
+                throw new InvalidOperationException($"More than one constructor found on {type} with {typeof(ModelBindingConstructorAttribute).FullName} or {typeof(JsonConstructorAttribute).FullName}.");
+            }
+            else if (constructorsWithAttributes.Count == 1)
+            {
+                return constructorsWithAttributes[0];
             }
 
-            // Pick the longest constructor.
-            return constructors.OrderByDescending(c => c.GetParameters().Length).First();
+            return constructors.FirstOrDefault(c => c.GetParameters().Length == 0);
         }
 
         private static BindingBehaviorAttribute FindBindingBehavior(BindingMetadataProviderContext context)

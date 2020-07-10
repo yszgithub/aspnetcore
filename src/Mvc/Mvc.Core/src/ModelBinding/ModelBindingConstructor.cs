@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Microsoft.AspNetCore.Mvc.ModelBinding
 {
     [AttributeUsage(AttributeTargets.Constructor, AllowMultiple = false)]
-    public sealed class ModelBindingConstructor : Attribute
+    public sealed class ModelBindingConstructorAttribute : Attribute
     {
     }
 }

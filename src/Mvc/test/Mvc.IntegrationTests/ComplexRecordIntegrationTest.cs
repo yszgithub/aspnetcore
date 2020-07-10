@@ -18,9 +18,8 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 {
-    // Integration tests targeting the behavior of the ComplexTypeModelBinder and related classes
-    // with other model binders.
-    public class ConstructorParametersBinderIntegrationTest
+    // A clone of ComplexTypeIntegrationTestBase performed using record types
+    public class ComplexRecordIntegrationTest
     {
         private const string AddressBodyContent = "{ \"street\" : \"" + AddressStreetContent + "\" }";
         private const string AddressStreetContent = "1 Microsoft Way";
@@ -35,7 +34,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Address1(string Street);
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithBodyModelBinder_WithPrefix_Success()
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -44,7 +43,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Customer.Name=bill");
@@ -85,7 +84,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithBodyModelBinder_WithEmptyPrefix_Success()
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithEmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -94,7 +93,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Customer.Name=bill");
@@ -135,7 +134,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithBodyModelBinder_WithPrefix_NoBodyData()
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithPrefix_NoBodyData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -144,7 +143,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Customer.Name=bill");
@@ -186,7 +185,61 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithBodyModelBinder_WithPrefix_PartialData()
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithPrefix_NoBodyData_ValueInQuery()
+        {
+            // With record types, constructor parameters also appear as settable properties.
+            // In this case, we will only attempt to bind the parameter and not the property.
+
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(Order1)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?parameter.Customer.Name=bill&paramater.Customer.Address=not-used");
+                request.ContentType = "application/json";
+            });
+
+            testContext.MvcOptions.AllowEmptyInputInBodyModelBinding = true;
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<Order1>(modelBindingResult.Model);
+            Assert.NotNull(model.Customer);
+            Assert.Equal("bill", model.Customer.Name);
+            Assert.Null(model.Customer.Address);
+
+            Assert.Single(modelState);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+
+            var entry = Assert.Single(modelState, e => e.Key == "parameter.Customer.Name").Value;
+            Assert.Equal("bill", entry.AttemptedValue);
+            Assert.Equal("bill", entry.RawValue);
+        }
+
+        [Fact]
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithPrefix_PartialData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -195,7 +248,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.ProductId=10");
@@ -235,7 +288,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithBodyModelBinder_WithPrefix_NoData()
+        public async Task BindsNestedPOCO_WithBodyModelBinder_WithPrefix_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -244,7 +297,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -283,7 +336,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Person3(string Name, byte[] Token);
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithByteArrayModelBinder_WithPrefix_Success()
+        public async Task BindsNestedPOCO_WithByteArrayModelBinder_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -292,7 +345,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order3)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString =
@@ -336,7 +389,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithByteArrayModelBinder_WithEmptyPrefix_Success()
+        public async Task BindsNestedPOCO_WithByteArrayModelBinder_WithEmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -345,7 +398,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order3)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Customer.Name=bill&Customer.Token=" + ByteArrayEncoded);
@@ -388,7 +441,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithByteArrayModelBinder_WithPrefix_NoData()
+        public async Task BindsNestedPOCO_WithByteArrayModelBinder_WithPrefix_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -397,7 +450,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order3)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Customer.Name=bill");
@@ -440,7 +493,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Person4(string Name, IEnumerable<IFormFile> Documents);
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_Success()
+        public async Task BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -449,7 +502,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order4)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Customer.Name=bill");
@@ -493,16 +546,16 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithFormFileModelBinder_WithEmptyPrefix_Success()
+        public async Task BindsNestedPOCO_WithFormFileModelBinder_WithEmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
             {
                 Name = "parameter",
-                ParameterType = typeof(Order4)
+                ParameterType = typeof(Order4),
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Customer.Name=bill");
@@ -546,7 +599,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_NoBodyData()
+        public async Task BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_NoBodyData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -555,7 +608,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order4)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Customer.Name=bill");
@@ -597,7 +650,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_PartialData()
+        public async Task BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_PartialData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -606,7 +659,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order4)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.ProductId=10");
@@ -654,7 +707,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_NoData()
+        public async Task BindsNestedPOCO_WithFormFileModelBinder_WithPrefix_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -663,7 +716,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order4)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -708,7 +761,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order5(string Name, int[] ProductIds);
 
         [Fact]
-        public async Task ConstructorBinder_BindsArrayProperty_WithPrefix_Success()
+        public async Task BindsArrayProperty_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -717,7 +770,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order5)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString =
@@ -764,7 +817,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsArrayProperty_EmptyPrefix_Success()
+        public async Task BindsArrayProperty_EmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -773,7 +826,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order5)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Name=bill&ProductIds[0]=10&ProductIds[1]=11");
@@ -819,7 +872,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsArrayProperty_NoCollectionData()
+        public async Task BindsArrayProperty_NoCollectionData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -828,7 +881,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order5)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Name=bill");
@@ -866,7 +919,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsArrayProperty_NoData()
+        public async Task BindsArrayProperty_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -875,7 +928,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order5)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -911,7 +964,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order6(string Name, List<int> ProductIds);
 
         [Fact]
-        public async Task ConstructorBinder_BindsListProperty_WithPrefix_Success()
+        public async Task BindsListProperty_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -920,7 +973,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order6)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString =
@@ -967,7 +1020,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsListProperty_EmptyPrefix_Success()
+        public async Task BindsListProperty_EmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -976,7 +1029,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order6)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Name=bill&ProductIds[0]=10&ProductIds[1]=11");
@@ -1022,7 +1075,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsListProperty_NoCollectionData()
+        public async Task BindsListProperty_NoCollectionData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1031,7 +1084,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order6)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Name=bill");
@@ -1069,7 +1122,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsListProperty_NoData()
+        public async Task BindsListProperty_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1078,7 +1131,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order6)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -1114,7 +1167,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order7(string Name, Dictionary<string, int> ProductIds);
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_WithPrefix_Success()
+        public async Task BindsDictionaryProperty_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1123,7 +1176,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order7)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString =
@@ -1170,7 +1223,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_EmptyPrefix_Success()
+        public async Task BindsDictionaryProperty_EmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1179,7 +1232,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order7)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Name=bill&ProductIds[0].Key=key0&ProductIds[0].Value=10");
@@ -1225,7 +1278,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_NoCollectionData()
+        public async Task BindsDictionaryProperty_NoCollectionData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1234,7 +1287,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order7)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.Name=bill");
@@ -1272,7 +1325,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_NoData()
+        public async Task BindsDictionaryProperty_NoData()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1281,7 +1334,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order7)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -1325,7 +1378,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record SpecDoc(string Name);
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_WithIEnumerableComplexTypeValue_Success()
+        public async Task BindsDictionaryProperty_WithIEnumerableComplexTypeValue_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1432,7 +1485,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_WithArrayOfComplexTypeValue_Success()
+        public async Task BindsDictionaryProperty_WithArrayOfComplexTypeValue_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1539,7 +1592,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsDictionaryProperty_WithIEnumerableOfKeyValuePair_Success()
+        public async Task BindsDictionaryProperty_WithIEnumerableOfKeyValuePair_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1648,7 +1701,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order8(KeyValuePair<string, int> ProductId, string Name = default!);
 
         [Fact]
-        public async Task ConstructorBinder_BindsKeyValuePairProperty_WithPrefix_Success()
+        public async Task BindsKeyValuePairProperty_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1657,7 +1710,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order8)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString =
@@ -1704,7 +1757,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_BindsKeyValuePairProperty_EmptyPrefix_Success()
+        public async Task BindsKeyValuePairProperty_EmptyPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1713,7 +1766,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order8)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?Name=bill&ProductId.Key=key0&ProductId.Value=10");
@@ -1758,104 +1811,10 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Equal("10", entry.RawValue);
         }
 
-        [Fact(Skip = "https://github.com/dotnet/aspnetcore/issues/11813")]
-        public async Task ConstructorBinder_BindsKeyValuePairProperty_NoCollectionData()
-        {
-            // Arrange
-            var parameter = new ParameterDescriptor()
-            {
-                Name = "parameter",
-                ParameterType = typeof(Order8)
-            };
-
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
-            var testContext = ModelBindingTestHelper.GetTestContext(request =>
-            {
-                request.QueryString = new QueryString("?parameter.Name=bill");
-            });
-
-            var modelState = testContext.ModelState;
-            var metadata = GetMetadata(testContext, parameter);
-            var modelBinder = GetModelBinder(testContext, parameter, metadata);
-            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
-
-            // Act
-            var modelBindingResult = await parameterBinder.BindModelAsync(
-                testContext,
-                modelBinder,
-                valueProvider,
-                parameter,
-                metadata,
-                value: null);
-
-            // Assert
-            Assert.True(modelBindingResult.IsModelSet);
-
-            var model = Assert.IsType<Order8>(modelBindingResult.Model);
-            Assert.Equal("bill", model.Name);
-            Assert.Equal(default, model.ProductId);
-
-            Assert.Equal(1, modelState.ErrorCount);
-            Assert.False(modelState.IsValid);
-
-            var entry = Assert.Single(modelState, e => e.Key == "parameter.Name").Value;
-            Assert.Equal("bill", entry.AttemptedValue);
-            Assert.Equal("bill", entry.RawValue);
-
-            entry = Assert.Single(modelState, e => e.Key == "parameter.ProductId.Key").Value;
-            Assert.Single(entry.Errors);
-        }
-
-        [Fact(Skip = "https://github.com/dotnet/aspnetcore/issues/11813")]
-        public async Task ConstructorBinder_BindsKeyValuePairProperty_NoData()
-        {
-            // Arrange
-            var parameter = new ParameterDescriptor()
-            {
-                Name = "parameter",
-                ParameterType = typeof(Order8)
-            };
-
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
-            var testContext = ModelBindingTestHelper.GetTestContext(request =>
-            {
-                request.QueryString = new QueryString("?");
-            });
-
-            var modelState = testContext.ModelState;
-            var metadata = GetMetadata(testContext, parameter);
-            var modelBinder = GetModelBinder(testContext, parameter, metadata);
-            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
-
-            // Act
-            var modelBindingResult = await parameterBinder.BindModelAsync(
-                testContext,
-                modelBinder,
-                valueProvider,
-                parameter,
-                metadata,
-                value: null);
-
-            // Assert
-            Assert.True(modelBindingResult.IsModelSet);
-
-            var model = Assert.IsType<Order8>(modelBindingResult.Model);
-            Assert.Null(model.Name);
-            Assert.Equal(default, model.ProductId);
-
-            Assert.Equal(1, modelState.ErrorCount);
-            Assert.False(modelState.IsValid);
-
-            var entry = Assert.Single(modelState, e => e.Key == "ProductId.Key").Value;
-            Assert.Single(entry.Errors);
-        }
-
         private record Car4(string Name, KeyValuePair<string, Dictionary<string, string>> Specs);
 
         [Fact]
-        public async Task Foo_ConstructorBinder_BindsKeyValuePairProperty_WithPrefix_Success()
+        public async Task Foo_BindsKeyValuePairProperty_WithPrefix_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1864,7 +1823,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Car4)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 var queryString = "?p.Name=Accord"
@@ -1947,7 +1906,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         // If a nested POCO object has all properties bound from a greedy source, then it should be populated
         // if the top-level object is created.
         [Fact]
-        public async Task ConstructorBinder_BindsNestedPOCO_WithAllGreedyBoundProperties()
+        public async Task BindsNestedPOCO_WithAllGreedyBoundProperties()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -1956,7 +1915,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order9)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -1997,7 +1956,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Person10(string Name);
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredComplexProperty_NoData_GetsErrors()
+        public async Task WithRequiredComplexProperty_NoData_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2042,7 +2001,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithBindRequired_NoData_AndCustomizedMessage_AddsGivenMessage()
+        public async Task WithBindRequired_NoData_AndCustomizedMessage_AddsGivenMessage()
         {
             // Arrange
             var parameterInfo = typeof(Order10).GetConstructor(new[] { typeof(Person10) }).GetParameters()[0];
@@ -2102,7 +2061,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Person11(int Id, [BindRequired] string Name);
 
         [Fact]
-        public async Task ConstructorBinder_WithNestedRequiredProperty_WithPartialData_GetsErrors()
+        public async Task WithNestedRequiredProperty_WithPartialData_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2156,7 +2115,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithNestedRequiredProperty_WithData_EmptyPrefix_GetsErrors()
+        public async Task WithNestedRequiredProperty_WithData_EmptyPrefix_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2210,7 +2169,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithNestedRequiredProperty_WithData_CustomPrefix_GetsErrors()
+        public async Task WithNestedRequiredProperty_WithData_CustomPrefix_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2270,7 +2229,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order12([BindRequired] string ProductName);
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredProperty_NoData_GetsErrors()
+        public async Task WithRequiredProperty_NoData_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2318,7 +2277,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredProperty_NoData_CustomPrefix_GetsErrors()
+        public async Task WithRequiredProperty_NoData_CustomPrefix_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2370,7 +2329,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredProperty_WithData_EmptyPrefix_GetsBound()
+        public async Task WithRequiredProperty_WithData_EmptyPrefix_GetsBound()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2418,7 +2377,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Order13([BindRequired] List<int> OrderIds);
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredCollectionProperty_NoData_GetsErrors()
+        public async Task WithRequiredCollectionProperty_NoData_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2466,7 +2425,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredCollectionProperty_NoData_CustomPrefix_GetsErrors()
+        public async Task WithRequiredCollectionProperty_NoData_CustomPrefix_GetsErrors()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2518,7 +2477,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         }
 
         [Fact]
-        public async Task ConstructorBinder_WithRequiredCollectionProperty_WithData_EmptyPrefix_GetsBound()
+        public async Task WithRequiredCollectionProperty_WithData_EmptyPrefix_GetsBound()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2567,7 +2526,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         // This covers the case where a key is present, but has an empty value. The type converter
         // will report an error.
         [Fact]
-        public async Task ConstructorBinder_BindsPOCO_TypeConvertedPropertyNonConvertibleValue_GetsError()
+        public async Task BindsPOCO_TypeConvertedPropertyNonConvertibleValue_GetsError()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2576,7 +2535,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order14)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.ProductId=");
@@ -2621,7 +2580,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         // report and error because it's a value type (non-nullable).
         [Fact]
         [ReplaceCulture]
-        public async Task ConstructorBinder_BindsPOCO_TypeConvertedPropertyWithEmptyValue_Error()
+        public async Task BindsPOCO_TypeConvertedPropertyWithEmptyValue_Error()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2630,7 +2589,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Order14)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?parameter.ProductId");
@@ -2889,7 +2848,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record Product(int ProductId)
         {
             public string Name { get; }
-            
+
             public IList<string> Aliases { get; }
         }
 
@@ -2897,7 +2856,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         [InlineData("?parameter.ProductId=10")]
         [InlineData("?parameter.ProductId=10&parameter.Name=Camera")]
         [InlineData("?parameter.ProductId=10&parameter.Name=Camera&parameter.Aliases[0]=Camera1")]
-        public async Task ConstructorBinder_BindsSettableProperties(string queryString)
+        public async Task BindsSettableProperties(string queryString)
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2942,7 +2901,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         private record LocationInfo([FromHeader] string GpsCoordinates, int Zipcode);
 
         [Fact]
-        public async Task ConstructorBinder_BindsKeyValuePairProperty_HavingFromHeaderProperty_Success()
+        public async Task BindsKeyValuePairProperty_HavingFromHeaderProperty_Success()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -2951,7 +2910,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Photo)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.Headers.Add("GpsCoordinates", "10,20");
@@ -3010,7 +2969,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 
         // Regression test for #4802.
         [Fact]
-        public async Task ConstructorBinder_ReportsFailureToCollectionModelBinder()
+        public async Task ReportsFailureToCollectionModelBinder()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -3084,7 +3043,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 
         // Regression test for #4939.
         [Fact]
-        public async Task ConstructorBinder_ReportsFailureToCollectionModelBinder_CustomBinder()
+        public async Task ReportsFailureToCollectionModelBinder_CustomBinder()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -3149,7 +3108,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 
         // Regression test for #6616.
         [Fact]
-        public async Task ConstructorBinder_ReportsFailureToConstructorBinder_NearTopLevel()
+        public async Task ReportsFailureToNearTopLevel()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -3200,7 +3159,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 
         // Regression test for #6616.
         [Fact]
-        public async Task ConstructorBinder_ReportsFailureToComplexTypeModelBinder()
+        public async Task ReportsFailureToComplexTypeModelBinder()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -3272,7 +3231,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 
         // Regression test for #6616.
         [Fact]
-        public async Task ConstructorBinder_ReportsFailureToConstructorBinder_ViaCollection()
+        public async Task ReportsFailureToViaCollection()
         {
             // Arrange
             var parameter = new ParameterDescriptor()
@@ -3491,7 +3450,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(RecordTypeWithSettableProperty1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?");
@@ -3534,7 +3493,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(RecordTypeWithSettableProperty1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?name=TestName");
@@ -3578,7 +3537,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(RecordTypeWithSettableProperty1)
             };
 
-            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
             var testContext = ModelBindingTestHelper.GetTestContext(request =>
             {
                 request.QueryString = new QueryString("?age=28");
@@ -3610,6 +3569,659 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Equal("Age", entry.Key);
             Assert.Equal(0, modelState.ErrorCount);
             Assert.True(modelState.IsValid);
+        }
+
+        [Fact]
+        public async Task RecordTypeWithBoundParametersAndProperties_ValueForParameterAndProperty()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithSettableProperty1)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Name=test&age=28");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithSettableProperty1>(modelBindingResult.Model);
+            Assert.Equal("test", model.Name);
+            Assert.Equal(28, model.Age);
+
+            Assert.Equal(2, modelState.Count);
+            var entry = Assert.Single(modelState, m => m.Key == "Age");
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+
+            entry = Assert.Single(modelState, m => m.Key == "Name");
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        public record RecordTypeWithFilteredProperty1([BindNever] string Id, string Name);
+
+        [Fact]
+        public async Task RecordTypeWithBoundParameters_ParameterCannotBeBound()
+        {
+            // Annotatons on properties do not appear on properties. If an attribute is never bound, the property is also not bound.
+
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithFilteredProperty1)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=not-bound&Name=test");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithFilteredProperty1>(modelBindingResult.Model);
+            Assert.Null(model.Id);
+            Assert.Equal("test", model.Name);
+
+            var entry = Assert.Single(modelState);
+            Assert.Equal("Name", entry.Key);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        [Bind(include: new[] { "Name" })]
+        public record RecordTypeWithFilteredProperty2(string Id, string Name);
+
+        [Fact]
+        public async Task RecordTypeWithBoundParameters_ParameterAreFiltered()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithFilteredProperty2)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=not-bound&Name=test");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithFilteredProperty2>(modelBindingResult.Model);
+            Assert.Null(model.Id);
+            Assert.Equal("test", model.Name);
+
+            var entry = Assert.Single(modelState);
+            Assert.Equal("Name", entry.Key);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        public record RecordTypesWithDifferentMetadataOnParameterAndProperty
+        {
+            public RecordTypesWithDifferentMetadataOnParameterAndProperty([FromQuery] string id, string name)
+                => (Id, Name) = (id, name);
+
+            [FromHeader]
+            public string Id { get; init; }
+
+            public string Name { get; init; }
+        }
+
+        [Fact]
+        public async Task RecordTypesWithDifferentMetadataOnParameterAndProperty_MetadataOnParameterIsUsed()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDifferentMetadataOnParameterAndProperty)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.Headers.Add("Id", "not-bound");
+                request.QueryString = new QueryString("?Id=testId&Name=test");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypesWithDifferentMetadataOnParameterAndProperty>(modelBindingResult.Model);
+            Assert.Equal("testId", model.Id);
+            Assert.Equal("test", model.Name);
+
+            Assert.Single(modelState, e => e.Key == "name");
+            Assert.Single(modelState, e => e.Key == "id");
+        }
+
+        [Fact]
+        public async Task RecordTypesWithDifferentMetadataOnParameterAndProperty_NoDataForParameter()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDifferentMetadataOnParameterAndProperty)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.Headers.Add("Id", "not-bound");
+                request.QueryString = new QueryString("?Name=test");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypesWithDifferentMetadataOnParameterAndProperty>(modelBindingResult.Model);
+            Assert.Null(model.Id);
+            Assert.Equal("test", model.Name);
+
+            var entry = Assert.Single(modelState);
+            Assert.Equal("name", entry.Key);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        private record RecordTypeWithCollectionParameter(string Id, IList<string> Tags);
+
+        [Fact]
+        public async Task RecordTypeWithCollectionParameter_WithData_Succeeds()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithCollectionParameter)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=test&Tags[0]=tag1&Tags[1]=tag2");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypeWithCollectionParameter>(modelBindingResult.Model);
+            Assert.Equal("test", model.Id);
+            Assert.Equal(new[] { "tag1", "tag2" }, model.Tags);
+
+            Assert.Single(modelState, e => e.Key == "Id");
+            Assert.Single(modelState, e => e.Key == "Tags[0]");
+            Assert.Single(modelState, e => e.Key == "Tags[1]");
+        }
+
+        [Fact]
+        public async Task RecordTypeCollectionParameter_NoData()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithCollectionParameter)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=test");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithCollectionParameter>(modelBindingResult.Model);
+            Assert.Equal("test", model.Id);
+            Assert.Null(model.Tags);
+
+            var entry = Assert.Single(modelState, e => e.Key == "Id");
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        private record RecordTypesWithReadOnlyCollectionParameter(string Id, string[] Tags);
+
+        [Fact]
+        public async Task RecordTypesWithReadOnlyCollectionParameter_Data_GetsBound()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithReadOnlyCollectionParameter)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=test&Tags[0]=tag1&Tags[1]=tag2");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypesWithReadOnlyCollectionParameter>(modelBindingResult.Model);
+            Assert.Equal("test", model.Id);
+            Assert.Equal(new[] { "tag1", "tag2" }, model.Tags);
+
+            Assert.Single(modelState, e => e.Key == "Id");
+            Assert.Single(modelState, e => e.Key == "Tags[0]");
+            Assert.Single(modelState, e => e.Key == "Tags[1]");
+        }
+
+        private record RecordTypesWithDefaultParameterValue(string Id = "default-id", string[] Tags = null);
+
+        [Fact]
+        public async Task RecordTypesWithDefaultParameterValue_Data()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDefaultParameterValue)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Id=test&Tags[0]=tag1&Tags[1]=tag2");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+            Assert.Equal(0, modelState.ErrorCount);
+
+            var model = Assert.IsType<RecordTypesWithDefaultParameterValue>(modelBindingResult.Model);
+            Assert.Equal("test", model.Id);
+            Assert.Equal(new[] { "tag1", "tag2" }, model.Tags);
+
+            Assert.Single(modelState, e => e.Key == "Id");
+            Assert.Single(modelState, e => e.Key == "Tags[0]");
+            Assert.Single(modelState, e => e.Key == "Tags[1]");
+        }
+
+        [Fact]
+        public async Task RecordTypesWithDefaultParameterValue_NoData()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDefaultParameterValue)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypesWithDefaultParameterValue>(modelBindingResult.Model);
+            Assert.Equal("default-id", model.Id);
+            Assert.Null(model.Tags);
+
+            Assert.Empty(modelState);
+        }
+
+        [Fact]
+        public async Task RecordTypesWithDefaultParameterValue_PartialData()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDefaultParameterValue)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Tags[0]=tag");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypesWithDefaultParameterValue>(modelBindingResult.Model);
+            Assert.Equal("default-id", model.Id);
+            Assert.Equal(new[] { "tag" }, model.Tags);
+
+            Assert.Equal(0, modelState.ErrorCount);
+            var entry = Assert.Single(modelState);
+            Assert.Equal("Tags[0]", entry.Key);
+        }
+
+        [Fact]
+        public async Task RecordTypesWithDefaultParameterValue_PartialDataWithPrefix()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypesWithDefaultParameterValue)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?parameter.Tags[0]=tag");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypesWithDefaultParameterValue>(modelBindingResult.Model);
+            Assert.Equal("default-id", model.Id);
+            Assert.Equal(new[] { "tag" }, model.Tags);
+
+            Assert.Equal(0, modelState.ErrorCount);
+            var entry = Assert.Single(modelState);
+            Assert.Equal("parameter.Tags[0]", entry.Key);
+        }
+
+        private record RecordTypeWithBindRequiredParameters([BindRequired] string Name, int Age);
+
+        [Fact]
+        public async Task RecordTypeWithBindRequiredParameters_Data_Success()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithBindRequiredParameters)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Name=test&Age=7");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+            Assert.True(modelState.IsValid);
+
+            var model = Assert.IsType<RecordTypeWithBindRequiredParameters>(modelBindingResult.Model);
+            Assert.Equal("test", model.Name);
+            Assert.Equal(7, model.Age);
+
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.Equal(2, modelState.Count);
+            
+            Assert.Single(modelState, m => m.Key == "Age");
+            Assert.Single(modelState, m => m.Key == "Name");
+        }
+
+        [Fact]
+        public async Task RecordTypeWithBindRequiredParameters_PartialData_BindRequiredError()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithBindRequiredParameters)
+            };
+
+            // Need to have a key here so that the ComplexObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?Age=7");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithBindRequiredParameters>(modelBindingResult.Model);
+            Assert.Null(model.Name);
+            Assert.Equal(7, model.Age);
+
+            Assert.False(modelState.IsValid);
+            Assert.Equal(1, modelState.ErrorCount);
+            
+            Assert.Equal(2, modelState.Count);
+            var entry = Assert.Single(modelState, m => m.Key == "Age");
+            Assert.Empty(entry.Value.Errors);
+
+            entry = Assert.Single(modelState, m => m.Key == "Name");
+            var error = Assert.Single(entry.Value.Errors);
+            Assert.Equal("A value for the 'Name' parameter or property was not provided.", error.ErrorMessage);
         }
 
         private static void SetJsonBodyContent(HttpRequest request, string content)

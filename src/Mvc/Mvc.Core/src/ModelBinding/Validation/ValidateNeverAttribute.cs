@@ -8,9 +8,9 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Validation
     /// <summary>
     /// <see cref="IPropertyValidationFilter"/> implementation that unconditionally indicates a property should be
     /// excluded from validation. When applied to a property, the validation system excludes that property. When
-    /// applied to a type, the validation system excludes all properties within that type.
+    /// applied to a type, the validation system excludes all properties within that type. When applied to a parameter, the validation system excludes that parameter.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false, Inherited = true)]
     public sealed class ValidateNeverAttribute : Attribute, IPropertyValidationFilter
     {
         /// <inheritdoc />

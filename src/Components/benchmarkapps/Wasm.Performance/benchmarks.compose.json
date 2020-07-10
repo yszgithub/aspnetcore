@@ -15,7 +15,7 @@
         "dockerfile": "src/Components/benchmarkapps/Wasm.Performance/dockerfile"
       },
       "buildArguments": [
-        "gitBranch=master"
+        "gitBranch=stevesa/blazor-perf-3.2-baseline"
       ],
       "waitForExit": true,
       "readyStateText": "Application started."

@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Options;
@@ -273,13 +274,56 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
                 parameterTypes[i] = parameter.ParameterType;
             }
 
-            var objectFactory = ActivatorUtilities.CreateFactory(constructorKey.ModelType, parameterTypes);
-            
             var constructorDetails = new DefaultMetadataDetails(constructorKey, ModelAttributes.Empty);
             constructorDetails.BoundConstructorParameters = parameterMetadata;
-            constructorDetails.BoundConstructorInvoker = (args) => objectFactory(NullServiceProvider.Instance, args);
+            constructorDetails.BoundConstructorInvoker = CreateObjectFactory(constructor);
 
             return constructorDetails;
+
+            static Func<object[], object> CreateObjectFactory(ConstructorInfo constructor)
+            {
+                var args = Expression.Parameter(typeof(object[]), "args");
+                var factoryExpressionBody = BuildFactoryExpression(constructor, args);
+
+                var factoryLamda = Expression.Lambda<Func<object[], object>>(
+                   factoryExpressionBody, args);
+
+                return factoryLamda.Compile();
+            }
+        }
+
+        private static Expression BuildFactoryExpression(
+            ConstructorInfo constructor,
+            Expression factoryArgumentArray)
+        {
+            var constructorParameters = constructor.GetParameters();
+            var constructorArguments = new Expression[constructorParameters.Length];
+
+            for (var i = 0; i < constructorParameters.Length; i++)
+            {
+                var constructorParameter = constructorParameters[i];
+                var parameterType = constructorParameter.ParameterType;
+
+                constructorArguments[i] = Expression.ArrayAccess(factoryArgumentArray, Expression.Constant(i));
+                if (ParameterDefaultValue.TryGetDefaultValue(constructorParameter, out var defaultValue))
+                {
+                    // We have a default value;
+                }
+                else if (parameterType.IsValueType)
+                {
+                    defaultValue = Activator.CreateInstance(parameterType);
+                }
+
+                if (defaultValue != null)
+                {
+                    var defaultValueExpression = Expression.Constant(defaultValue);
+                    constructorArguments[i] = Expression.Coalesce(constructorArguments[i], defaultValueExpression);
+                }
+
+                constructorArguments[i] = Expression.Convert(constructorArguments[i], parameterType);
+            }
+
+            return Expression.New(constructor, constructorArguments);
         }
 
         private ModelMetadataCacheEntry GetMetadataCacheEntryForObjectType()
@@ -420,7 +464,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata
                 return null;
             }
 
-            var modelBindingConstructors = constructors.Where(c => c.IsDefined(typeof(ModelBindingConstructor), inherit: true)).ToList();
+            var modelBindingConstructors = constructors.Where(c => c.IsDefined(typeof(ModelBindingConstructorAttribute), inherit: true)).ToList();
             if (modelBindingConstructors.Count > 1)
             {
                 throw new InvalidOperationException($"More than one constructor found on {type} with ModelBindingConstructorAttribute.");

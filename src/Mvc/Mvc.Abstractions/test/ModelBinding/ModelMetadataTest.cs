@@ -728,6 +728,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                     throw new NotImplementedException();
                 }
             }
+
+            public override ModelMetadata BoundConstructor => throw new NotImplementedException();
+
+            public override Func<object[], object> ConstructorInvoker => throw new NotImplementedException();
         }
 
         private class CollectionImplementation : ICollection<string>
