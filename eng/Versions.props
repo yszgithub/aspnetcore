@@ -162,8 +162,6 @@
     assemblies for runtime packages. But, need to test against the latest implementation assemblies and ship them in our
     shared framework. Upshot is we need Major.Minor.0 runtime packages for compilation and the targeting pack and
     Major.Minor.Latest runtime packages for everything else.
-    !!! List below is likely incomplete. Should include all dotnet/runtime packages containing assemblies in
-    !!! Microsoft.AspNetCore.App.Ref or Microsoft.AspNetCore.App.Runtime.*.
   -->
   <PropertyGroup Condition=" '$(IsServicingBuild)' == 'true' ">
     <MicrosoftWin32RegistryV0PackageVersion>$(MicrosoftWin32RegistryPackageVersion.Split('.')[0]).$(MicrosoftWin32RegistryPackageVersion.Split('.')[1]).0</MicrosoftWin32RegistryV0PackageVersion>
