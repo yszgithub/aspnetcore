@@ -178,6 +178,12 @@
     <SystemWindowsExtensionsV0PackageVersion>$(SystemWindowsExtensionsPackageVersion.Split('.')[0]).$(SystemWindowsExtensionsPackageVersion.Split('.')[1]).0</SystemWindowsExtensionsV0PackageVersion>
   </PropertyGroup>
 
+  <!-- Fake a servicing build by using the previous version of a couple of the above packages for ref/ assemblies. -->
+  <PropertyGroup Label="Test only; remove before merging !!!">
+    <SystemIOPipelinesV0PackageVersion>5.0.0-preview.8.20354.5</SystemIOPipelinesV0PackageVersion>
+    <SystemSecurityCryptographyCngV0PackageVersion>5.0.0-preview.8.20354.5</SystemSecurityCryptographyCngV0PackageVersion>
+  </PropertyGroup>
+
   <PropertyGroup Label="Manual">
     <!-- DiagnosticAdapter package pinned temporarily until migrated/deprecated -->
     <MicrosoftExtensionsDiagnosticAdapterPackageVersion>5.0.0-preview.4.20180.4</MicrosoftExtensionsDiagnosticAdapterPackageVersion>
