@@ -580,6 +580,7 @@ namespace Microsoft.AspNetCore.Components.Routing
         public void Attach(Microsoft.AspNetCore.Components.RenderHandle renderHandle) { }
         public void Dispose() { }
         System.Threading.Tasks.Task Microsoft.AspNetCore.Components.IHandleAfterRender.OnAfterRenderAsync() { throw null; }
+        protected internal virtual void Refresh(bool isNavigationIntercepted) { }
         [System.Diagnostics.DebuggerStepThroughAttribute]
         public System.Threading.Tasks.Task SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView parameters) { throw null; }
     }
