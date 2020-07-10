@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
@@ -15,7 +15,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
     /// <summary>
     /// <see cref="IModelBinder"/> implementation for binding complex types.
     /// </summary>
-    public class ConstructorParametersModelBinder : IModelBinder
+    public class DefaultModelBinder : IModelBinder
     {
         // Don't want a new public enum because communication between the private and internal methods of this class
         // should not be exposed. Can't use an internal enum because types of [TheoryData] values must be public.
@@ -29,16 +29,18 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         // Model contains at least one parameter that is expected to bind from value providers and a value provider has
         // matching data.
         internal const int ValueProviderDataAvailable = 2;
-        
+        private readonly IDictionary<ModelMetadata, IModelBinder> _propertyBinders;
         private readonly ModelMetadata _boundConstructor;
         private readonly IReadOnlyList<IModelBinder> _parameterBinders;
         private readonly ILogger _logger;
 
-        internal ConstructorParametersModelBinder(
+        internal DefaultModelBinder(
+            IDictionary<ModelMetadata, IModelBinder> propertyBinders,
             ModelMetadata boundConstructor,
             IReadOnlyList<IModelBinder> parameterBinders,
-            ILogger<ConstructorParametersModelBinder> logger)
+            ILogger<DefaultModelBinder> logger)
         {
+            _propertyBinders = propertyBinders;
             _boundConstructor = boundConstructor;
             _parameterBinders = parameterBinders;
             _logger = logger;
@@ -61,17 +63,30 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
             // Perf: separated to avoid allocating a state machine when we don't
             // need to go async.
-            return BindModelCoreAsync(bindingContext, parameterData);
+            var rented = _boundConstructor.Parameters.Count > 0;
+
+            var values = rented ? ArrayPool<object>.Shared.Rent(_boundConstructor.Parameters.Count) : Array.Empty<object>();
+            try
+            {
+                ParameterDefaultValues.GetParameterDefaultValues(_boundConstructor.Identity.ConstructorInfo, values);
+                return BindModelCoreAsync(bindingContext, parameterData, values);
+            }
+            finally
+            {
+                if (rented)
+                {
+                    ArrayPool<object>.Shared.Return(values);
+                }
+            }
         }
 
-        private async Task BindModelCoreAsync(ModelBindingContext bindingContext, int parameterData)
+        private async Task BindModelCoreAsync(ModelBindingContext bindingContext, int parameterData, object[] values)
         {
             Debug.Assert(parameterData == GreedyParametersMayHaveData || parameterData == ValueProviderDataAvailable);
 
             var attemptedBinding = false;
             var postponePlaceholderBinding = false;
             var parameterBindingSucceeded = false;
-            var values = ParameterDefaultValues.GetParameterDefaultValues(_boundConstructor.Identity.ConstructorInfo);
 
             for (var i = 0; i < _boundConstructor.Parameters.Count; i++)
             {
@@ -146,30 +161,84 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 }
             }
 
-            // Did we violate [BindRequired] on the model? This case occurs if
-            // 1. All parameters in a [BindRequired] model have [BindNever] or are otherwise excluded from binding.
-            // 2. No data exists for any parameter.
-            if (!attemptedBinding &&
-                bindingContext.IsTopLevelObject &&
-                bindingContext.ModelMetadata.IsBindingRequired)
+            try
             {
-                var messageProvider = bindingContext.ModelMetadata.ModelBindingMessageProvider;
-                var message = messageProvider.MissingBindRequiredValueAccessor(bindingContext.FieldName);
-                bindingContext.ModelState.TryAddModelError(bindingContext.ModelName, message);
+                bindingContext.Model = _boundConstructor.BoundConstructorInvoker(values);
             }
-            else if (bindingContext.IsTopLevelObject || parameterBindingSucceeded)
+            catch (Exception exception)
             {
-                try
+                AddModelError(exception, bindingContext.ModelName, bindingContext);
+                return;
+            }
+
+            var modelMetadata = bindingContext.ModelMetadata;
+
+            for (var i = 0; i < modelMetadata.Properties.Count; i++)
+            {
+                var property = modelMetadata.Properties[i];
+                if (!CanBindProperty(bindingContext, property))
                 {
-                    bindingContext.Model = _boundConstructor.BoundConstructorInvoker(values);
+                    continue;
                 }
-                catch (Exception exception)
+
+                if (_propertyBinders[property] is PlaceholderBinder)
                 {
-                    AddModelError(exception, bindingContext.ModelName, bindingContext);
-                    return;
+                    if (postponePlaceholderBinding)
+                    {
+                        // Decided to postpone binding properties that complete a loop in the model types when handling
+                        // an earlier loop-completing property. Postpone binding this property too.
+                        continue;
+                    }
+                    else if (!bindingContext.IsTopLevelObject &&
+                        !propertyBindingSucceeded &&
+                        propertyData == GreedyPropertiesMayHaveData)
+                    {
+                        // Have no confirmation of data for the current instance. Postpone completing the loop until
+                        // we _know_ the current instance is useful. Recursion would otherwise occur prior to the
+                        // block with a similar condition after the loop.
+                        //
+                        // Example cases include an Employee class containing
+                        // 1. a Manager property of type Employee
+                        // 2. an Employees property of type IList<Employee>
+                        postponePlaceholderBinding = true;
+                        continue;
+                    }
+                }
+
+                var fieldName = property.BinderModelName ?? property.PropertyName;
+                var modelName = ModelNames.CreatePropertyModelName(bindingContext.ModelName, fieldName);
+                var result = await BindProperty(bindingContext, property, fieldName, modelName);
+
+                if (result.IsModelSet)
+                {
+                    attemptedPropertyBinding = true;
+                    propertyBindingSucceeded = true;
+                }
+                else if (property.IsBindingRequired)
+                {
+                    attemptedPropertyBinding = true;
                 }
             }
-            
+
+            if (postponePlaceholderBinding && propertyBindingSucceeded)
+            {
+                // Have some data for this instance. Continue with the model type loop.
+                for (var i = 0; i < modelMetadata.Properties.Count; i++)
+                {
+                    var property = modelMetadata.Properties[i];
+                    if (!CanBindProperty(bindingContext, property))
+                    {
+                        continue;
+                    }
+
+                    if (_propertyBinders[property] is PlaceholderBinder)
+                    {
+                        var fieldName = property.BinderModelName ?? property.PropertyName;
+                        var modelName = ModelNames.CreatePropertyModelName(bindingContext.ModelName, fieldName);
+                        await BindProperty(bindingContext, property, fieldName, modelName);
+                    }
+                }
+            }
 
             _logger.DoneAttemptingToBindModel(bindingContext);
 

@@ -31,7 +31,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                     parameterBinders[i] = context.CreateBinder(boundConstructor.Parameters[i]);
                 }
 
-                return new ConstructorParametersModelBinder(boundConstructor, parameterBinders, loggerFactory.CreateLogger<ConstructorParametersModelBinder>());
+                return new DefaultModelBinder(boundConstructor, parameterBinders, loggerFactory.CreateLogger<DefaultModelBinder>());
             }
 
             return null;

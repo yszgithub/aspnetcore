@@ -3476,6 +3476,142 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Equal(expectedMessage, exception.Message);
         }
 
+        private record RecordTypeWithSettableProperty1(string Name)
+        {
+            public int Age { get; set; }
+        }
+
+        [Fact]
+        public async Task RecordTypeWithBoundParametersAndProperties_NoData()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithSettableProperty1)
+            };
+
+            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithSettableProperty1>(modelBindingResult.Model);
+            Assert.Null(model.Name);
+            Assert.Equal(0, model.Age);
+
+            Assert.Empty(modelState);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        [Fact]
+        public async Task RecordTypeWithBoundParametersAndProperties_ValueForParameter()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithSettableProperty1)
+            };
+
+            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?name=TestName");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithSettableProperty1>(modelBindingResult.Model);
+            Assert.Equal("TestName", model.Name);
+            Assert.Equal(0, model.Age);
+
+            var entry = Assert.Single(modelState);
+            Assert.Equal("Name", entry.Key);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
+        [Fact]
+        public async Task RecordTypeWithBoundParametersAndProperties_ValueForProperty()
+        {
+            // Arrange
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "parameter",
+                ParameterType = typeof(RecordTypeWithSettableProperty1)
+            };
+
+            // Need to have a key here so that the MutableObjectModelBinder will recurse to bind elements.
+            var testContext = ModelBindingTestHelper.GetTestContext(request =>
+            {
+                request.QueryString = new QueryString("?age=28");
+            });
+
+            var modelState = testContext.ModelState;
+            var metadata = GetMetadata(testContext, parameter);
+            var modelBinder = GetModelBinder(testContext, parameter, metadata);
+            var valueProvider = await CompositeValueProvider.CreateAsync(testContext);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext);
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(
+                testContext,
+                modelBinder,
+                valueProvider,
+                parameter,
+                metadata,
+                value: null);
+
+            // Assert
+            Assert.True(modelBindingResult.IsModelSet);
+
+            var model = Assert.IsType<RecordTypeWithSettableProperty1>(modelBindingResult.Model);
+            Assert.Null(model.Name);
+            Assert.Equal(28, model.Age);
+
+            var entry = Assert.Single(modelState);
+            Assert.Equal("Age", entry.Key);
+            Assert.Equal(0, modelState.ErrorCount);
+            Assert.True(modelState.IsValid);
+        }
+
         private static void SetJsonBodyContent(HttpRequest request, string content)
         {
             var stream = new MemoryStream(new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(content));

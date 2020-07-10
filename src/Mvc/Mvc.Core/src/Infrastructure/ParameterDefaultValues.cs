@@ -10,7 +10,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
 {
     internal static class ParameterDefaultValues
     {
-        public static object[] GetParameterDefaultValues(MethodBase methodInfo)
+        public static object[] GetParameterDefaultValues(MethodInfo methodInfo)
         {
             if (methodInfo == null)
             {
@@ -26,6 +26,16 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
             }
 
             return values;
+        }
+
+        public static void GetParameterDefaultValues(MethodBase methodInfo, object[] values)
+        {
+            var parameters = methodInfo.GetParameters();
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                values[i] = GetParameterDefaultValue(parameters[i]);
+            }
         }
 
         private static object GetParameterDefaultValue(ParameterInfo parameterInfo)
