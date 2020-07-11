@@ -202,11 +202,12 @@
       <PackageReference
           Condition=" '%(PackageReference.RTMVersion)' != '' and '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
           AllowExplicitVersion="true"
-          IsImplicitlyDefined="false"
-          ExcludeAssets="Compile" />
+          ExcludeAssets="Compile"
+          IsImplicitlyDefined="false" />
       <PackageReference Include="@(PackageReference->HasMetadata('RTMVersion'))"
           Condition=" '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
           AllowExplicitVersion="true"
+          ExcludeAssets="None"
           IsImplicitlyDefined="false"
           IncludeAssets="Compile"
           PrivateAssets="All"
