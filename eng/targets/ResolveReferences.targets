@@ -194,14 +194,20 @@
       Update project references to compile against RTM packages. %(RTMVersion) is set for about a dozen packages in all
       servicing builds. But, these changes are only needed when that value differs from current %(Version) i.e. after
       an incoming package has been serviced.
+
+      Cannot reference two versions of an implicitly-defined package even if only one is implicit. Mark both to allow
+      the explicit versions instead.
     -->
     <ItemGroup>
       <PackageReference
           Condition=" '%(PackageReference.RTMVersion)' != '' and '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
+          AllowExplicitVersion="true"
+          IsImplicitlyDefined="false"
           ExcludeAssets="Compile" />
       <PackageReference Include="@(PackageReference->HasMetadata('RTMVersion'))"
           Condition=" '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
-          IsImplicitlyDefined="true"
+          AllowExplicitVersion="true"
+          IsImplicitlyDefined="false"
           IncludeAssets="Compile"
           PrivateAssets="All"
           Version="%(PackageReference.RTMVersion)" />
