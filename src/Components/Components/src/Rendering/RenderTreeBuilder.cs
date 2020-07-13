@@ -220,7 +220,8 @@ namespace Microsoft.AspNetCore.Components.Rendering
             AssertCanAddAttribute();
             if (value != null || _lastNonAttributeFrameType == RenderTreeFrameType.Component)
             {
-                Append(RenderTreeFrame.Attribute(sequence, name, value));
+                _entries.AppendAttribute(sequence, name, value);
+                //Append(RenderTreeFrame.Attribute(sequence, name, value));
             }
             else
             {
