@@ -31,8 +31,8 @@ namespace Wasm.Performance.ConsoleHost.Scenarios
                 var componentId = renderer.AssignRootComponentId(hostPage);
                 await renderer.RenderRootComponentAsync(componentId);
 
-                hostPage.ChangePage();
-                await renderer.RenderRootComponentAsync(componentId);
+                //hostPage.ChangePage();
+                //await renderer.RenderRootComponentAsync(componentId);
             }
         }
     }
