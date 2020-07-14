@@ -12,15 +12,6 @@ and are generated based on the last package release.
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
   </PropertyGroup>
 
-  <ItemDefinitionGroup>
-    <LatestPackageReference>
-      <!-- Required. Expected to be an exact package version. Wildcards are not allowed. -->
-      <Version />
-      <!-- Optional: Major.Minor.0 package version for use in servicing builds for some packages. -->
-      <RTMVersion />
-    </LatestPackageReference>
-  </ItemDefinitionGroup>
-
   <ItemGroup Label=".NET team dependencies">
     <LatestPackageReference Include="Microsoft.Azure.SignalR" />
     <LatestPackageReference Include="Microsoft.Css.Parser" />
@@ -198,6 +189,9 @@ and are generated based on the last package release.
     <LatestPackageReference Update="@(LatestPackageReference)">
       <Version>$(%(VersionName)PackageVersion)</Version>
       <RTMVersion>$(%(VersionName)V0PackageVersion)</RTMVersion>
+
+      <!-- Remove excess metadata. -->
+      <RTMVersion Condition=" '%(Version)' == '%(RTMVersion)' " />
       <VersionName />
     </LatestPackageReference>
 

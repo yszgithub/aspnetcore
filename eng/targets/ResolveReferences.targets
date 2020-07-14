@@ -147,7 +147,7 @@
       <UnusedBaselinePackageReference Remove="@(SuppressBaselineReference)" Condition="'$(IsServicingBuild)' != 'true'"/>
     </ItemGroup>
 
-    <JoinItems Left="@(Reference)" Right="@(LatestPackageReference)" LeftMetadata="*" RightMetadata="Version;RTMVersion"
+    <JoinItems Left="@(Reference)" Right="@(LatestPackageReference)" LeftMetadata="*" RightMetadata="Version"
         Condition=" '$(UseLatestPackageReferences)' == 'true' ">
       <Output TaskParameter="JoinResult" ItemName="_LatestPackageReferenceWithVersion" />
     </JoinItems>
@@ -160,7 +160,7 @@
 
     <!-- Resolve references from BaselinePackageReference for servicing builds in corner cases. May be unused. -->
     <JoinItems Left="@(Reference)" Right="@(BaselinePackageReference)" LeftMetadata="*" RightMetadata="Version"
-          Condition=" '$(IsServicingBuild)' == 'true' OR '$(UseLatestPackageReferences)' != 'true' ">
+        Condition=" '$(IsServicingBuild)' == 'true' OR '$(UseLatestPackageReferences)' != 'true' ">
       <Output TaskParameter="JoinResult" ItemName="_BaselinePackageReferenceWithVersion" />
     </JoinItems>
 
@@ -174,7 +174,7 @@
     <JoinItems Left="@(Reference->WithMetadataValue('PrivateAssets', 'All'))"
         Right="@(LatestPackageReference)"
         LeftMetadata="*"
-        RightMetadata="Version;RTMVersion">
+        RightMetadata="Version">
       <Output TaskParameter="JoinResult" ItemName="_PrivatePackageReferenceWithVersion" />
     </JoinItems>
 
@@ -190,30 +190,6 @@
       <_ImplicitPackageReference Remove="@(_ImplicitPackageReference)" />
     </ItemGroup>
 
-    <!--
-      Update project references to compile against RTM packages. %(RTMVersion) is set for about a dozen packages in all
-      servicing builds. But, these changes are only needed when that value differs from current %(Version) i.e. after
-      an incoming package has been serviced.
-
-      Cannot reference two versions of an implicitly-defined package even if only one is implicit. Mark both to allow
-      the explicit versions instead.
-    -->
-    <ItemGroup>
-      <PackageReference
-          Condition=" '%(PackageReference.RTMVersion)' != '' and '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
-          AllowExplicitVersion="true"
-          ExcludeAssets="Compile"
-          IsImplicitlyDefined="false" />
-      <PackageReference Include="@(PackageReference->HasMetadata('RTMVersion'))"
-          Condition=" '%(PackageReference.RTMVersion)' != '%(PackageReference.Version)' "
-          AllowExplicitVersion="true"
-          ExcludeAssets="None"
-          IsImplicitlyDefined="false"
-          IncludeAssets="Compile"
-          PrivateAssets="All"
-          Version="%(PackageReference.RTMVersion)" />
-    </ItemGroup>
-
     <Error
         Condition="'$(DisablePackageReferenceRestrictions)' != 'true' AND @(_ExplicitPackageReference->Count()) != 0"
         Text="PackageReference items are not allowed. Use &lt;Reference&gt; instead to replace the reference to @(_ExplicitPackageReference, ', '). See docs/ReferenceResolution.md for more details." />
@@ -226,6 +202,39 @@
         Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework' AND '%(Reference.Identity)' != '' AND ! Exists('%(Reference.Identity)') AND '$(DisablePackageReferenceRestrictions)' != 'true'"
         Code="MSB3245"
         Text="Could not resolve this reference. Could not locate the package or project for &quot;%(Reference.Identity)&quot;. Did you update baselines and dependencies lists? See docs/ReferenceResolution.md for more details." />
+  </Target>
+
+  <!--
+    Muck with @(ResolvedCompileFileDefinitions) items between generation and use in order to compile against RTM lib/
+    or ref/ assemblies. The approach works for all TFMs because it happens after a  specific assembly is chosen for
+    compilation; no need to restrict this to (say) the default TFM.
+
+    Condition checks for RTMVersions.csproj.nuget.g.props file only to ensure restore operation is complete.
+
+    !!! Note lib/ assemblies chosen for (say) .netstandard2.0 compilation are also be updated. Thoughts? !!!
+  -->
+  <Target Name="_UseRTMReferenceAssemblies"
+      Condition=" '$(EnableCustomReferenceResolution)' == 'true' AND EXISTS('$(RepoRoot)eng\RTMVersions\obj\RTMVersions.csproj.nuget.g.props') "
+      BeforeTargets="GenerateBuildDependencyFile;GeneratePublishDependencyFile;ILLink;ResolveLockFileReferences"
+      DependsOnTargets="ResolvePackageAssets">
+    <JoinItems Left="@(ResolvedCompileFileDefinitions)"
+        Right="@(LatestPackageReference->HasMetadata('RTMVersion'))"
+        LeftKey="Filename"
+        ItemSpecToUse="Left"
+        LeftMetadata="*"
+        RightMetadata="RTMVersion">
+      <Output TaskParameter="JoinResult" ItemName="_ResolvedCompileFileDefinitionsToChange" />
+    </JoinItems>
+
+    <ItemGroup>
+      <ResolvedCompileFileDefinitions Remove="@(_ResolvedCompileFileDefinitionsToChange)" />
+
+      <_ResolvedCompileFileDefinitionsToChange
+          HintPath="$([System.String]::new('%(Identity)').Replace('\%(NuGetPackageVersion)\', '\%(RTMVersion)\'))" />
+      <ResolvedCompileFileDefinitions Include="@(_ResolvedCompileFileDefinitionsToChange -> '%(HintPath)')" />
+
+      <_ResolvedCompileFileDefinitionsToChange Remove="@(_ResolvedCompileFileDefinitionsToChange)" />
+    </ItemGroup>
   </Target>
 
   <PropertyGroup>

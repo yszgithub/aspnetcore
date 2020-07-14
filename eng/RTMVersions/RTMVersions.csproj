@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Gather project references for compilation against RTM packages. %(RTMVersion) is set for about a dozen packages
+    in all servicing builds. Cannot reference two versions of a package, mandating this separate package.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+
+    <!-- Don't bother building anything here. We only only to ensure the RTM packages are on disk. -->
+    <DebugType>none</DebugType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <CopyBuildOutputToPublishDirectory>false</CopyBuildOutputToPublishDirectory>
+    <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+
+    <!-- This project should not be referenced via the `<Reference>` implementation. -->
+    <IsProjectReferenceProvider>false</IsProjectReferenceProvider>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="@(LatestPackageReference->HasMetadata('RTMVersion'))" Version="%(RTMVersion)" />
+  </ItemGroup>
+</Project>
